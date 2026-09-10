@@ -1,0 +1,42 @@
+# Local container-based dev, and the reference for the Dokploy setup.
+#   docker compose up --build
+# The API is at http://localhost:3000, Postgres at localhost:5433.
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: roster
+      POSTGRES_PASSWORD: roster
+      POSTGRES_DB: roster
+    ports:
+      # 5433 on the host: :5432 is already taken by the dev machine's local Postgres.
+      - "5433:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      # Runs once, on an empty data volume, so a fresh stack self-initialises.
+      # `docker compose down -v` to re-run them.
+      - ./apps/api/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./apps/api/db/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U roster -d roster"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      DATABASE_URL: postgres://roster:roster@db:5432/roster
+      PORT: "3000"
+      CORS_ORIGIN: http://localhost:5173
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  db-data:
