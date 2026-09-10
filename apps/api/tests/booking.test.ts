@@ -354,6 +354,16 @@ describe('UC3 payment completion', () => {
 // Input validation and error hygiene.
 // ===========================================================================
 describe('boundaries (NFR12, NFR18)', () => {
+  test('readiness reports the database as reachable, liveness does not check it', async () => {
+    const live = await api.get('/api/health');
+    expect(live.status).toBe(200);
+    expect(live.body).toEqual({ ok: true });
+
+    const ready = await api.get('/api/ready');
+    expect(ready.status).toBe(200);
+    expect(ready.body).toEqual({ ok: true, db: 'up' });
+  });
+
   test('NFR18: a malformed booking body is rejected by the schema with 422, not 400 and not 500', async () => {
     const missing = await api.post<unknown>('/api/bookings', { studentId: crypto.randomUUID() });
     const notAUuid = await api.post<unknown>('/api/bookings', {

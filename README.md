@@ -263,7 +263,8 @@ and no owner, a `locked` seat must carry a deadline, a `booked` seat must not.
 
 | Method | Path | Notes |
 |---|---|---|
-| `GET` | `/api/health` | `{"ok":true}` — used by the Docker healthcheck |
+| `GET` | `/api/health` | liveness: `{"ok":true}`. Does not touch the database — this is what the Docker healthcheck polls |
+| `GET` | `/api/ready` | readiness: `SELECT 1`, `200` if the database answers and `503` if it does not. Point uptime monitoring here |
 | `GET` | `/api/students` | students with their parent's name |
 | `GET` | `/api/classes` | UC1: each class + `confirmedCount`, `seatsAvailable`, `seatsLocked`, read straight off the seat rows |
 | `GET` | `/api/classes/:classId/roster` | UC4: `CONFIRMED` bookings only, in seat order |

@@ -1,6 +1,7 @@
 import type { ApiError } from '@roster/types';
 import { cors } from '@elysiajs/cors';
 import { Elysia } from 'elysia';
+import { sql } from './db';
 import { env } from './env';
 import { AppError } from './errors';
 import { bookingRoutes } from './routes/bookings';
@@ -41,7 +42,19 @@ export function createApp() {
       set.status = 500;
       return { error: 'internal_error', message: 'Something went wrong.' } satisfies ApiError;
     })
+    // Liveness: is the process up. Deliberately does NOT touch the database — this is what
+    // the container HEALTHCHECK polls, and restarting the API does not fix a down database.
     .get('/api/health', () => ({ ok: true }))
+    // Readiness: can we actually serve traffic. This is the one to point uptime monitoring at.
+    .get('/api/ready', async ({ set }) => {
+      try {
+        await sql`SELECT 1`;
+        return { ok: true, db: 'up' as const };
+      } catch {
+        set.status = 503;
+        return { ok: false, db: 'down' as const };
+      }
+    })
     .use(studentRoutes)
     .use(classRoutes)
     .use(bookingRoutes)

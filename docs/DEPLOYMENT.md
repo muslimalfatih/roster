@@ -81,15 +81,23 @@ Assumes Dokploy with the Traefik proxy it ships by default.
    ```
    Equivalently, from the container terminal, where `db/` ships alongside the source:
    ```sh
-   bun scripts/reset-db.ts        # cwd is already /app/apps/api
+   bun scripts/reset-db.ts --schema-only    # cwd is already /app/apps/api
    ```
+   **Use `--schema-only` on any database you care about.** Without it the script also applies
+   `seed.sql`, which truncates every table. `schema.sql` on its own is idempotent.
    Note it is `bun scripts/reset-db.ts`, not `pnpm db:reset`: the runtime image is bun-only, with no
    node and no pnpm, so package scripts are not runnable there.
 7. Verify:
    ```sh
-   curl https://api.example.com/api/health     # {"ok":true}
+   curl https://api.example.com/api/health     # {"ok":true}          liveness
+   curl https://api.example.com/api/ready      # {"ok":true,"db":"up"} readiness
    curl https://api.example.com/api/classes    # the seeded classes with live seat counts
    ```
+
+   Point uptime monitoring at **`/api/ready`**, not `/api/health`. `/api/health` only says the
+   process is running and answers 200 with the database completely down — which is deliberate,
+   because it is what the container HEALTHCHECK polls and restarting the API does not fix a
+   down database. `/api/ready` runs `SELECT 1` and returns 503 when it fails.
 
 `.dockerignore` lives at the **repo root**, because that is the build context — Docker reads it from
 there and nowhere else. It keeps `node_modules`, `dist`, `.env`, `apps/web`, `docs` and `**/tests`
