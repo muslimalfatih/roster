@@ -1,0 +1,4 @@
+[test]
+# setup.ts must run before ANY module that reads DATABASE_URL is imported, otherwise
+# the api's postgres client would be constructed pointing at the dev database.
+preload = ["./tests/setup.ts"]
