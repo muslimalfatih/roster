@@ -1,0 +1,18 @@
+node_modules/
+dist/
+build/
+
+# Local environment. .env.example is the committed reference.
+.env
+.env.*
+!.env.example
+
+# Deploy platform caches
+.vercel
+.turbo
+
+# Personal recording notes, not part of the submission
+docs/VIDEO_SCRIPT.md
+
+*.log
+.DS_Store

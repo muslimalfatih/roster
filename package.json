@@ -1,0 +1,19 @@
+{
+  "name": "roster",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.22.0",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "db:reset": "pnpm --filter @roster/api db:reset",
+    "dev": "pnpm --parallel --filter \"@roster/*\" dev",
+    "dev:api": "pnpm --filter @roster/api dev",
+    "dev:web": "pnpm --filter @roster/web dev",
+    "test": "pnpm --filter @roster/api test",
+    "typecheck": "pnpm -r typecheck",
+    "build": "pnpm --filter @roster/web build",
+    "slides": "open docs/slides.html || xdg-open docs/slides.html"
+  }
+}
