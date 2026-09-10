@@ -1,0 +1,921 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>roster — four seats, twenty parents</title>
+<style>
+:root{
+  --bg:#070a0f; --panel:#0d121a; --panel-2:#111926; --panel-3:#161f2e;
+  --line:#1a2434; --line-2:#26344a;
+  --text:#e8eef7; --dim:#8494a8; --dimmer:#5a6779;
+  --blue:#5aa2ff; --blue-dim:#2d5a99; --blue-wash:rgba(90,162,255,.09);
+  --green:#3fb950; --green-wash:rgba(63,185,80,.10);
+  --orange:#e08e45; --orange-wash:rgba(224,142,69,.10);
+  --red:#f85149; --red-wash:rgba(248,81,73,.10);
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;
+  --ease:cubic-bezier(.2,0,0,1);
+  --pad:20px; --r-out:16px; --r-in:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:var(--bg); color:var(--text); font-family:var(--sans);
+  -webkit-font-smoothing:antialiased; overflow:hidden;
+  font-variant-numeric:tabular-nums;
+}
+/* ---------- deck shell ---------- */
+.deck{position:relative;height:100vh;width:100vw}
+.slide{
+  position:absolute;inset:0;display:none;
+  padding:clamp(28px,4.5vh,56px) clamp(28px,5vw,88px) 84px;
+  overflow:auto; scrollbar-width:thin; scrollbar-color:var(--line-2) transparent;
+}
+.slide.is-active{display:flex;flex-direction:column}
+.slide::-webkit-scrollbar{width:8px}
+.slide::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:4px}
+
+.eyebrow{
+  font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--dimmer);margin-bottom:14px;
+}
+h1{font-size:clamp(34px,5.2vw,62px);line-height:1.04;letter-spacing:-.025em;font-weight:600}
+h2{font-size:clamp(26px,3.4vw,40px);line-height:1.1;letter-spacing:-.02em;font-weight:600;color:var(--blue)}
+.sub{color:var(--dim);font-size:clamp(14px,1.35vw,17px);margin-top:10px;max-width:62ch;line-height:1.5}
+.head{margin-bottom:clamp(18px,3vh,32px);flex:none}
+.body{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center}
+
+/* ---------- staged entrance (infrequent, so stagger is warranted) ---------- */
+.is-active [data-stagger]{animation:rise .5s var(--ease) both}
+.is-active [data-stagger="1"]{animation-delay:.04s}
+.is-active [data-stagger="2"]{animation-delay:.12s}
+.is-active [data-stagger="3"]{animation-delay:.20s}
+.is-active [data-stagger="4"]{animation-delay:.28s}
+.is-active [data-stagger="5"]{animation-delay:.36s}
+@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* ---------- panels ---------- */
+.panel{
+  background:var(--panel);border-radius:var(--r-out);padding:var(--pad);
+  box-shadow:0 0 0 1px var(--line), 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.7);
+}
+.panel-label{
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--dimmer);display:flex;justify-content:space-between;align-items:center;
+  margin-bottom:14px;gap:16px;
+}
+.grid-2{display:grid;grid-template-columns:1.35fr 1fr;gap:20px;align-items:start}
+.grid-2 > .panel{display:flex;flex-direction:column}
+.grid-2 > .panel > .meters{margin-top:auto}
+.stack{display:flex;flex-direction:column;gap:14px}
+
+/* ---------- seat cards ---------- */
+.seats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.seat{
+  border-radius:var(--r-in);padding:12px;background:var(--panel-2);
+  box-shadow:inset 0 0 0 1px var(--line);
+  transition:box-shadow .28s var(--ease),background .28s var(--ease),transform .18s var(--ease);
+  min-height:96px;display:flex;flex-direction:column;justify-content:space-between;
+}
+.seat .no{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;color:var(--dimmer);text-transform:uppercase}
+.seat .st{font-family:var(--mono);font-size:12.5px;font-weight:500;margin-top:8px}
+.seat .who{font-family:var(--mono);font-size:10px;color:var(--dimmer);margin-top:6px;min-height:13px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.seat[data-st=available]{color:var(--dim)}
+.seat[data-st=available] .st{color:var(--dimmer)}
+.seat[data-st=locked]{background:var(--orange-wash);box-shadow:inset 0 0 0 1px rgba(224,142,69,.42)}
+.seat[data-st=locked] .st{color:var(--orange)}
+.seat[data-st=booked]{background:var(--blue-wash);box-shadow:inset 0 0 0 1px rgba(90,162,255,.45)}
+.seat[data-st=booked] .st{color:var(--blue)}
+.seat[data-st=over]{background:var(--red-wash);box-shadow:inset 0 0 0 1px rgba(248,81,73,.55)}
+.seat[data-st=over] .st{color:var(--red)}
+.seat.pulse{transform:scale(1.03)}
+
+/* ---------- meters ---------- */
+.meters{margin-top:18px;padding-top:16px;border-top:1px solid var(--line);display:grid;gap:10px}
+.meter{display:grid;grid-template-columns:150px 1fr 58px;align-items:center;gap:14px;
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--dimmer)}
+.track{display:block;height:5px;border-radius:3px;background:var(--panel-3);overflow:hidden}
+.fill{display:block;height:100%;border-radius:3px;background:var(--blue);width:0;transition:width .45s var(--ease)}
+.fill.is-green{background:var(--green)} .fill.is-orange{background:var(--orange)} .fill.is-red{background:var(--red)}
+.meter .val{text-align:right;color:var(--dim);letter-spacing:.06em}
+
+/* ---------- service card (the green node) ---------- */
+.node{
+  border-radius:var(--r-out);padding:16px 18px;background:var(--panel);
+  box-shadow:inset 0 0 0 1px rgba(63,185,80,.45), 0 0 34px -10px rgba(63,185,80,.35);
+}
+.node.is-red{box-shadow:inset 0 0 0 1px rgba(248,81,73,.5), 0 0 34px -10px rgba(248,81,73,.4)}
+.node .title{font-family:var(--mono);font-size:17px;font-weight:600;letter-spacing:-.01em}
+.node .row{display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap}
+.badge{
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;padding:3px 8px;border-radius:6px;
+  background:var(--green-wash);color:var(--green);box-shadow:inset 0 0 0 1px rgba(63,185,80,.3);
+}
+.badge.is-red{background:var(--red-wash);color:var(--red);box-shadow:inset 0 0 0 1px rgba(248,81,73,.32)}
+.badge.is-blue{background:var(--blue-wash);color:var(--blue);box-shadow:inset 0 0 0 1px rgba(90,162,255,.3)}
+.badge.is-orange{background:var(--orange-wash);color:var(--orange);box-shadow:inset 0 0 0 1px rgba(224,142,69,.32)}
+.badge.is-mute{background:var(--panel-3);color:var(--dim);box-shadow:inset 0 0 0 1px var(--line)}
+.node .meta{font-family:var(--mono);font-size:11px;color:var(--dim)}
+
+/* ---------- key/value rows ---------- */
+.kv{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.kv .cell{
+  border-radius:var(--r-in);padding:12px 14px;background:var(--panel-2);
+  box-shadow:inset 0 0 0 1px var(--line);display:flex;align-items:center;gap:10px;
+}
+.kv .cell .k{font-family:var(--mono);font-size:12px;color:var(--text)}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--blue);flex:none}
+.dot.g{background:var(--green)} .dot.o{background:var(--orange)} .dot.r{background:var(--red)}
+.dot.m{background:var(--dimmer)}
+
+.rows{display:grid;gap:8px}
+.rrow{
+  border-radius:var(--r-in);padding:10px 14px;background:var(--panel-2);
+  box-shadow:inset 0 0 0 1px var(--line);
+  display:flex;align-items:center;gap:12px;font-family:var(--mono);font-size:12px;
+}
+.rrow .grow{flex:1;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rrow .tag{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--dimmer)}
+
+/* ---------- controls ---------- */
+.controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:18px}
+button.btn{
+  font-family:var(--mono);font-size:12px;letter-spacing:.05em;color:var(--text);
+  background:var(--panel-2);border:0;border-radius:9px;padding:9px 15px;cursor:pointer;
+  box-shadow:inset 0 0 0 1px var(--line-2);
+  transition:background .16s var(--ease),box-shadow .16s var(--ease),scale .12s var(--ease),color .16s var(--ease);
+}
+button.btn:hover{background:var(--panel-3);box-shadow:inset 0 0 0 1px #33445e}
+button.btn:active{scale:.96}
+button.btn:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+button.btn[aria-pressed=true]{background:var(--blue-wash);color:var(--blue);box-shadow:inset 0 0 0 1px rgba(90,162,255,.5)}
+button.btn.primary{background:rgba(90,162,255,.14);color:var(--blue);box-shadow:inset 0 0 0 1px rgba(90,162,255,.42)}
+button.btn.primary:hover{background:rgba(90,162,255,.2)}
+button.btn.danger[aria-pressed=true]{background:var(--red-wash);color:var(--red);box-shadow:inset 0 0 0 1px rgba(248,81,73,.5)}
+button.btn:disabled{opacity:.4;cursor:not-allowed}
+.seg{display:inline-flex;gap:4px;padding:4px;border-radius:11px;background:var(--panel-2);box-shadow:inset 0 0 0 1px var(--line)}
+.seg .btn{box-shadow:none;background:transparent;border-radius:8px}
+.seg .btn[aria-pressed=true]{box-shadow:none}
+.hint-inline{font-family:var(--mono);font-size:11px;color:var(--dimmer);letter-spacing:.04em}
+
+/* ---------- code ---------- */
+pre.code{
+  font-family:var(--mono);font-size:clamp(11px,1.02vw,13px);line-height:1.65;
+  background:var(--panel-2);border-radius:var(--r-in);padding:16px 18px;
+  box-shadow:inset 0 0 0 1px var(--line);overflow:auto;color:var(--dim);
+}
+.code .kw{color:#c08cff} .code .fn{color:var(--blue)} .code .str{color:#7ee787}
+.code .cm{color:var(--dimmer);font-style:italic} .code .hl{color:var(--orange);font-weight:600}
+.code .em{color:var(--text)}
+
+/* ---------- steps ---------- */
+.steps{display:grid;gap:8px}
+.step{
+  display:grid;grid-template-columns:26px 1fr;gap:14px;align-items:start;
+  padding:11px 14px;border-radius:var(--r-in);background:var(--panel-2);
+  box-shadow:inset 0 0 0 1px var(--line);
+  transition:background .28s var(--ease),box-shadow .28s var(--ease),opacity .28s var(--ease);
+  opacity:.4;
+}
+.step.on{opacity:1;background:var(--blue-wash);box-shadow:inset 0 0 0 1px rgba(90,162,255,.4)}
+.step.done{opacity:.85;background:var(--panel-2);box-shadow:inset 0 0 0 1px var(--line-2)}
+.step .n{font-family:var(--mono);font-size:11px;color:var(--dimmer);padding-top:2px}
+.step.on .n{color:var(--blue)}
+.step .t{font-family:var(--mono);font-size:12.5px;color:var(--text);line-height:1.5}
+.step .d{font-size:12px;color:var(--dim);margin-top:4px;line-height:1.5}
+.step .d b{color:var(--orange);font-weight:600}
+
+/* ---------- comparison ---------- */
+.cmp{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.cmp .col{border-radius:var(--r-out);padding:var(--pad);background:var(--panel);box-shadow:0 0 0 1px var(--line)}
+.cmp .col.win{box-shadow:0 0 0 1px rgba(63,185,80,.4), 0 0 30px -14px rgba(63,185,80,.4)}
+.cmp .col.lose{box-shadow:0 0 0 1px rgba(248,81,73,.34)}
+.cmp h3{font-family:var(--mono);font-size:14px;font-weight:600;letter-spacing:.02em;margin-bottom:4px}
+.cmp .col.win h3{color:var(--green)} .cmp .col.lose h3{color:var(--red)}
+.cmp .why{font-size:12.5px;color:var(--dim);line-height:1.55;margin-top:12px}
+
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;min-height:26px}
+.chip{
+  font-family:var(--mono);font-size:10px;padding:4px 8px;border-radius:6px;
+  background:var(--panel-3);color:var(--dimmer);box-shadow:inset 0 0 0 1px var(--line);
+  animation:pop .3s var(--ease) both;
+}
+.chip.ok{background:var(--green-wash);color:var(--green);box-shadow:inset 0 0 0 1px rgba(63,185,80,.34)}
+.chip.no{background:var(--red-wash);color:var(--red);box-shadow:inset 0 0 0 1px rgba(248,81,73,.32)}
+.chip.warn{background:var(--orange-wash);color:var(--orange);box-shadow:inset 0 0 0 1px rgba(224,142,69,.34)}
+@keyframes pop{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:none}}
+
+/* ---------- timeline ---------- */
+.tl{display:grid;gap:10px}
+.tlrow{
+  display:grid;grid-template-columns:86px 1fr;gap:16px;align-items:center;
+  padding:12px 16px;border-radius:var(--r-in);background:var(--panel-2);
+  box-shadow:inset 0 0 0 1px var(--line);opacity:.35;
+  transition:opacity .3s var(--ease),background .3s var(--ease),box-shadow .3s var(--ease);
+}
+.tlrow.on{opacity:1}
+.tlrow.on[data-who=A]{background:var(--orange-wash);box-shadow:inset 0 0 0 1px rgba(224,142,69,.4)}
+.tlrow.on[data-who=B]{background:var(--blue-wash);box-shadow:inset 0 0 0 1px rgba(90,162,255,.42)}
+.tlrow .who{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--dimmer)}
+.tlrow.on[data-who=A] .who{color:var(--orange)} .tlrow.on[data-who=B] .who{color:var(--blue)}
+.tlrow .what{font-size:13.5px;color:var(--text)}
+.tlrow .what small{display:block;font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:3px}
+
+/* ---------- stat tiles ---------- */
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.tile{border-radius:var(--r-in);padding:15px 16px;background:var(--panel-2);box-shadow:inset 0 0 0 1px var(--line)}
+.tile .n{font-family:var(--mono);font-size:26px;font-weight:600;letter-spacing:-.02em;color:var(--text)}
+.tile .n.g{color:var(--green)} .tile .n.b{color:var(--blue)} .tile .n.r{color:var(--red)}
+.tile .l{font-family:var(--mono);font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--dimmer);margin-top:7px}
+
+/* ---------- invariants ---------- */
+.inv{display:grid;gap:12px}
+.invrow{
+  display:grid;grid-template-columns:52px 1fr;gap:18px;align-items:start;
+  border-radius:var(--r-out);padding:16px 18px;background:var(--panel);box-shadow:0 0 0 1px var(--line);
+}
+.invrow .id{font-family:var(--mono);font-size:19px;font-weight:600;color:var(--blue)}
+.invrow .claim{font-size:15px;line-height:1.45}
+.invrow .by{font-family:var(--mono);font-size:11.5px;color:var(--dim);margin-top:8px;line-height:1.6}
+.invrow .by em{color:var(--orange);font-style:normal}
+.concl{
+  margin-top:6px;border-radius:var(--r-out);padding:16px 18px;
+  background:var(--green-wash);box-shadow:inset 0 0 0 1px rgba(63,185,80,.32);
+  font-family:var(--mono);font-size:13.5px;color:var(--green);line-height:1.6;
+}
+
+/* ---------- arrow / flow ---------- */
+.flow{position:relative;height:2px;background:var(--line-2);border-radius:1px;margin:0 6px;flex:1}
+.flow .pip{
+  position:absolute;top:-2.5px;width:6px;height:6px;border-radius:50%;background:var(--orange);
+  box-shadow:0 0 10px 2px rgba(224,142,69,.55);animation:travel 1.6s linear infinite;
+}
+@keyframes travel{from{left:-2%;opacity:0}12%{opacity:1}88%{opacity:1}to{left:102%;opacity:0}}
+
+/* ---------- rail ---------- */
+.rail{
+  position:fixed;left:0;right:0;bottom:0;height:60px;display:flex;align-items:center;
+  gap:18px;padding:0 clamp(20px,5vw,88px);
+  background:linear-gradient(to top,var(--bg) 55%,transparent);
+  font-family:var(--mono);font-size:11px;color:var(--dimmer);letter-spacing:.06em;
+}
+.dots{display:flex;gap:7px;align-items:center}
+.dots button{
+  width:7px;height:7px;padding:0;border:0;border-radius:50%;background:var(--line-2);cursor:pointer;
+  transition:background .2s var(--ease),width .28s var(--ease);
+}
+.dots button:hover{background:#3b4d68}
+.dots button[aria-current=true]{background:var(--blue);width:22px;border-radius:4px}
+.dots button:focus-visible{outline:2px solid var(--blue);outline-offset:3px}
+.rail .spacer{flex:1}
+.rail kbd{
+  font-family:var(--mono);background:var(--panel-2);border-radius:5px;padding:2px 6px;
+  box-shadow:inset 0 0 0 1px var(--line);color:var(--dim);font-size:10.5px;
+}
+.rail .title{color:var(--dim)}
+
+@media (max-width:920px){
+  .grid-2,.cmp{grid-template-columns:1fr}
+  .seats{grid-template-columns:repeat(2,1fr)}
+  .meter{grid-template-columns:110px 1fr 50px}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:.001ms !important}
+  .flow .pip{display:none}
+}
+</style>
+</head>
+<body>
+<div class="deck" id="deck">
+
+<!-- ============ 1 · TITLE ============ -->
+<section class="slide" data-title="Title">
+  <div class="body" style="justify-content:center">
+    <div class="eyebrow" data-stagger="1">roster · concurrency walkthrough</div>
+    <h1 data-stagger="2">Four seats.<br>Twenty parents.</h1>
+    <p class="sub" data-stagger="3" style="font-size:clamp(15px,1.6vw,20px);margin-top:20px">
+      A trial-class booking system that stays correct when every parent clicks at the same moment.
+      The whole design is one idea: <em style="color:var(--blue);font-style:normal">a seat is a row, and a row is a mutex</em>.
+    </p>
+    <div class="row" data-stagger="4" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:30px">
+      <span class="badge is-mute">Postgres 14</span>
+      <span class="badge is-mute">Elysia on Bun</span>
+      <span class="badge is-mute">React + TanStack</span>
+      <span class="badge is-blue">19 integration tests</span>
+      <span class="badge is-blue">3 k6 scenarios</span>
+      <span class="badge">overbooking structurally impossible</span>
+    </div>
+    <p class="hint-inline" data-stagger="5" style="margin-top:36px">
+      press <kbd style="font-family:var(--mono);background:var(--panel-2);border-radius:5px;padding:2px 6px;box-shadow:inset 0 0 0 1px var(--line)">→</kbd> to begin
+    </p>
+  </div>
+</section>
+
+<!-- ============ 2 · THE RACE ============ -->
+<section class="slide" data-title="The race">
+  <div class="head">
+    <h2 data-stagger="1">The race</h2>
+    <p class="sub" data-stagger="1">Two parents, one seat. The brief asks for exactly this sequence.</p>
+  </div>
+  <div class="body">
+    <div class="tl" data-stagger="2" id="tl">
+      <div class="tlrow" data-who="A"><span class="who">Parent A</span><span class="what">Selects the last available seat<small>Math Trial — 3 of 4 confirmed, 1 seat left</small></span></div>
+      <div class="tlrow" data-who="A"><span class="who">Parent A</span><span class="what">Moves to the payment screen<small>holds the seat, has not paid yet</small></span></div>
+      <div class="tlrow" data-who="B"><span class="who">Parent B</span><span class="what">Selects the same seat<small>the moment that must not be allowed to double-sell</small></span></div>
+      <div class="tlrow" data-who="B"><span class="who">Parent B</span><span class="what">Completes payment first — confirmed<small>seat 4 → booked</small></span></div>
+      <div class="tlrow" data-who="A"><span class="who">Parent A</span><span class="what">Now completes payment<small>what happens here decides whether the system is correct</small></span></div>
+    </div>
+    <div class="panel" data-stagger="3" style="margin-top:20px;background:var(--panel-2)">
+      <div class="panel-label"><span>the requirement</span><span>UC3-A3 · NFR4</span></div>
+      <p style="font-size:15px;line-height:1.6">
+        At most one parent may end up confirmed — and the one who loses
+        <b style="color:var(--green);font-weight:600">must not be charged</b>.
+      </p>
+    </div>
+    <div class="controls" data-stagger="4">
+      <button class="btn primary" id="tl-play">Play the sequence</button>
+      <span class="hint-inline" id="tl-status">5 steps</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 3 · WHAT ACTUALLY RUNS OUT ============ -->
+<section class="slide" data-title="What runs out">
+  <div class="head">
+    <h2 data-stagger="1">What actually runs out</h2>
+    <p class="sub" data-stagger="1">A class is not a number to compare against. It is four rows you can hold.</p>
+  </div>
+  <div class="body">
+    <div class="grid-2" data-stagger="2">
+      <div class="panel">
+        <div class="panel-label">
+          <span>seat inventory · math trial</span>
+          <span id="inv-turned" style="color:var(--red)">turned away 0</span>
+        </div>
+        <div class="seats" id="inv-seats"></div>
+        <div class="meters">
+          <div class="meter"><span>available</span><span class="track"><span class="fill is-green" id="m-avail"></span></span><span class="val" id="v-avail">1 / 4</span></div>
+          <div class="meter"><span>held (locked)</span><span class="track"><span class="fill is-orange" id="m-lock"></span></span><span class="val" id="v-lock">0 / 4</span></div>
+          <div class="meter"><span>confirmed</span><span class="track"><span class="fill" id="m-book"></span></span><span class="val" id="v-book">3 / 4</span></div>
+        </div>
+        <div class="controls">
+          <button class="btn primary" id="inv-run">Send 20 parents at the last seat</button>
+          <button class="btn" id="inv-reset">Reset</button>
+        </div>
+        <p class="hint-inline" id="inv-status" style="margin-top:12px">seeded at 3 / 4 — one seat left</p>
+      </div>
+      <div class="stack">
+        <div class="node" id="inv-node">
+          <div class="title">classes</div>
+          <div class="row">
+            <span class="badge" id="inv-badge">3 / 4 confirmed</span>
+            <span class="meta" id="inv-meta">capacity fixed at row-creation</span>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-label"><span>one seat, claimed</span></div>
+          <div class="kv">
+            <div class="cell"><span class="dot m"></span><span class="k">seat_no</span></div>
+            <div class="cell"><span class="dot o"></span><span class="k">status</span></div>
+            <div class="cell"><span class="dot o"></span><span class="k">pending_until</span></div>
+            <div class="cell"><span class="dot b"></span><span class="k">held_by_booking_id</span></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-label"><span>contend for the same rows</span></div>
+          <div class="rows">
+            <div class="rrow"><span class="dot g"></span><span class="grow">POST /api/bookings</span><span class="tag">claims</span></div>
+            <div class="rrow"><span class="dot g"></span><span class="grow">POST /api/payments/complete</span><span class="tag">settles</span></div>
+            <div class="rrow"><span class="dot m"></span><span class="grow">GET /api/classes</span><span class="tag">reads</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 4 · A SEAT IS A ROW ============ -->
+<section class="slide" data-title="Seat as mutex">
+  <div class="head">
+    <h2 data-stagger="1">A seat is a row, and a row is a mutex</h2>
+    <p class="sub" data-stagger="1">Postgres cannot express “count of children ≤ parent.capacity” as a constraint. So the seat stops being a count and becomes a thing you take.</p>
+  </div>
+  <div class="body">
+    <div class="grid-2" data-stagger="2">
+      <div class="panel">
+        <div class="panel-label"><span>seat lifecycle</span><span id="sm-hint">click a state</span></div>
+        <div class="seats" style="grid-template-columns:repeat(3,1fr)">
+          <button class="seat" data-sm="available" data-st="available" style="cursor:pointer;text-align:left;border:0;font:inherit">
+            <span class="no">state 1</span><span class="st">available</span><span class="who">nobody holds it</span>
+          </button>
+          <button class="seat" data-sm="locked" data-st="locked" style="cursor:pointer;text-align:left;border:0;font:inherit">
+            <span class="no">state 2</span><span class="st">locked</span><span class="who">held, deadline set</span>
+          </button>
+          <button class="seat" data-sm="booked" data-st="booked" style="cursor:pointer;text-align:left;border:0;font:inherit">
+            <span class="no">state 3</span><span class="st">booked</span><span class="who">paid for, permanent</span>
+          </button>
+        </div>
+        <div class="panel" style="margin-top:14px;background:var(--panel-2);box-shadow:inset 0 0 0 1px var(--line)">
+          <div class="panel-label"><span>transition</span></div>
+          <p id="sm-text" style="font-size:13.5px;line-height:1.6;color:var(--dim)">
+            <b style="color:var(--text);font-weight:600">available → locked</b> happens inside <span style="font-family:var(--mono);color:var(--blue)">createBooking</span>.
+            The row is claimed with a lock, a deadline is stamped on it, and the owning booking is recorded.
+          </p>
+        </div>
+      </div>
+      <div class="stack">
+        <pre class="code"><span class="cm">-- the claim. this single statement is the whole race guard.</span>
+<span class="kw">SELECT</span> id, seat_no <span class="kw">FROM</span> class_seats
+ <span class="kw">WHERE</span> class_id = $1
+   <span class="kw">AND</span> (status = <span class="str">'available'</span>
+     <span class="kw">OR</span> (status = <span class="str">'locked'</span> <span class="kw">AND</span> pending_until &lt; <span class="fn">now</span>()))
+ <span class="kw">ORDER BY</span> seat_no
+ <span class="kw">LIMIT</span> 1
+ <span class="hl">FOR UPDATE SKIP LOCKED</span>;</pre>
+        <div class="panel" style="background:var(--panel-2);box-shadow:inset 0 0 0 1px var(--line)">
+          <div class="panel-label"><span>why the OR clause exists</span></div>
+          <p style="font-size:13px;line-height:1.6;color:var(--dim)">
+            A lapsed hold is claimable again. That is <b style="color:var(--orange);font-weight:600">lazy expiry</b> —
+            it is why there is no sweeper job, and it is what makes Parent A’s late payment reachable at all.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 5 · INVARIANTS ============ -->
+<section class="slide" data-title="Invariants">
+  <div class="head">
+    <h2 data-stagger="1">Three invariants, all owned by the database</h2>
+    <p class="sub" data-stagger="1">Application checks are advisory under concurrency. Only these three are guarantees.</p>
+  </div>
+  <div class="body">
+    <div class="inv">
+      <div class="invrow" data-stagger="2">
+        <span class="id">I1</span>
+        <div>
+          <div class="claim">A class has exactly <b>capacity</b> seat rows.</div>
+          <div class="by">created by <em>generate_series(1, capacity)</em> · kept distinct by <em>UNIQUE (class_id, seat_no)</em></div>
+        </div>
+      </div>
+      <div class="invrow" data-stagger="3">
+        <span class="id">I2</span>
+        <div>
+          <div class="claim">A seat backs at most <b>one</b> confirmed booking.</div>
+          <div class="by"><em>CREATE UNIQUE INDEX … ON bookings (seat_id) WHERE status = 'CONFIRMED'</em></div>
+        </div>
+      </div>
+      <div class="invrow" data-stagger="4">
+        <span class="id">I3</span>
+        <div>
+          <div class="claim">At most one <b>active</b> booking per (student, class).</div>
+          <div class="by"><em>UNIQUE (student_id, class_id) WHERE status IN ('PENDING_PAYMENT','CONFIRMED')</em><br>
+          it excludes PAYMENT_FAILED on purpose, so a parent may retry after a decline</div>
+        </div>
+      </div>
+      <div class="concl" data-stagger="5">
+        I1 + I2 ⟹ confirmed bookings per class ≤ capacity.<br>
+        <span style="color:var(--dim)">No counting anywhere. Overbooking is not prevented — it is unrepresentable.</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 6 · CREATE BOOKING ============ -->
+<section class="slide" data-title="createBooking">
+  <div class="head">
+    <h2 data-stagger="1">Claiming a seat</h2>
+    <p class="sub" data-stagger="1"><span style="font-family:var(--mono);color:var(--blue)">createBooking</span> — one transaction, lock order always bookings → class_seats.</p>
+  </div>
+  <div class="body">
+    <div class="steps" data-stagger="2" id="cb-steps">
+      <div class="step"><span class="n">0</span><div><div class="t">settle a lapsed PENDING_PAYMENT booking → CANCELLED</div><div class="d">I3 has no time bound — a partial index cannot carry <b>now()</b>. Without this, an abandoned booking locks that child out of the class forever.</div></div></div>
+      <div class="step"><span class="n">1</span><div><div class="t">INSERT the booking first</div><div class="d">A duplicate hits the I3 index and 409s <b>before any seat is touched</b>, so a rejected duplicate cannot burn a seat.</div></div></div>
+      <div class="step"><span class="n">2</span><div><div class="t">claim a seat — FOR UPDATE SKIP LOCKED</div><div class="d">The serialisation point. Zero rows means the class is full, and the rollback undoes step 1.</div></div></div>
+      <div class="step"><span class="n">3</span><div><div class="t">mark it locked, stamp the deadline, record the owner</div><div class="d">One statement, so the CHECK constraints never see a half-written row.</div></div></div>
+      <div class="step"><span class="n">4</span><div><div class="t">attach seat_id to the booking, return the seat number</div><div class="d">The parent now holds a real seat, not a promise.</div></div></div>
+    </div>
+    <div class="controls" data-stagger="3">
+      <button class="btn primary" id="cb-step">Step through</button>
+      <button class="btn" id="cb-reset">Reset</button>
+      <span class="hint-inline" id="cb-status">5 steps · one transaction</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 7 · COMPLETE PAYMENT ============ -->
+<section class="slide" data-title="completePayment">
+  <div class="head">
+    <h2 data-stagger="1">Settling the payment</h2>
+    <p class="sub" data-stagger="1"><span style="font-family:var(--mono);color:var(--blue)">completePayment</span> — where Parent A finds out.</p>
+  </div>
+  <div class="body">
+    <div class="steps" data-stagger="2" id="cp-steps">
+      <div class="step"><span class="n">1</span><div><div class="t">lock the booking row</div><div class="d">Unknown id → 404.</div></div></div>
+      <div class="step"><span class="n">2</span><div><div class="t">replay guard — if it is not PENDING_PAYMENT, change nothing</div><div class="d">Returns <b>already_processed</b>. No payment attempt is written. This is what makes a double-submit safe.</div></div></div>
+      <div class="step"><span class="n">3</span><div><div class="t">lock the seat row</div><div class="d">Same order as createBooking, so the two can never deadlock.</div></div></div>
+      <div class="step"><span class="n">4</span><div><div class="t">is the seat still mine?</div><div class="d">status = locked <b>and</b> held_by_booking_id = this booking. If not, the hold lapsed and someone else took it → <b>class_full</b>, and no charge is attempted. Nothing to refund.</div></div></div>
+      <div class="step"><span class="n">5</span><div><div class="t">decline → release the seat</div><div class="d">Booking PAYMENT_FAILED, seat back to available for the next parent.</div></div></div>
+      <div class="step"><span class="n">6</span><div><div class="t">success → seat booked, booking CONFIRMED</div><div class="d">The I2 index is the last line of defence here; if it ever fires, it becomes class_full, never a 500.</div></div></div>
+    </div>
+    <div class="controls" data-stagger="3">
+      <button class="btn primary" id="cp-step">Step through</button>
+      <button class="btn" id="cp-reset">Reset</button>
+      <span class="hint-inline" id="cp-status">6 steps · one transaction</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 8 · SKIP LOCKED vs NOWAIT ============ -->
+<section class="slide" data-title="SKIP LOCKED">
+  <div class="head">
+    <h2 data-stagger="1">SKIP LOCKED, not NOWAIT</h2>
+    <p class="sub" data-stagger="1">The spec called for <span style="font-family:var(--mono)">NOWAIT</span>. Measured against the real database, it breaks ordinary booking.</p>
+  </div>
+  <div class="body">
+    <div class="controls" data-stagger="2" style="margin:0 0 16px">
+      <div class="seg" role="group" aria-label="Scenario">
+        <button class="btn" id="sc-empty" aria-pressed="true">Empty class · 4 seats · 4 parents</button>
+        <button class="btn" id="sc-last" aria-pressed="false">Last seat · 1 seat · 20 parents</button>
+      </div>
+      <button class="btn primary" id="cmp-run">Run both</button>
+    </div>
+    <div class="cmp" data-stagger="3">
+      <div class="col win" id="col-skip">
+        <h3>FOR UPDATE SKIP LOCKED</h3>
+        <div class="hint-inline">steps over rows another transaction holds</div>
+        <div class="tiles" style="margin-top:14px;grid-template-columns:1fr 1fr">
+          <div class="tile"><div class="n g" id="skip-ok">—</div><div class="l">claimed</div></div>
+          <div class="tile"><div class="n" id="skip-no">—</div><div class="l">rejected</div></div>
+        </div>
+        <div class="chips" id="skip-chips"></div>
+        <p class="why" id="skip-why">Four parents, four seats, four claims. When only one seat is left, exactly one wins and the rest get a clean <span style="font-family:var(--mono);color:var(--green)">409 class_full</span> — a business error a parent can understand.</p>
+      </div>
+      <div class="col lose" id="col-nowait">
+        <h3>FOR UPDATE NOWAIT</h3>
+        <div class="hint-inline">aborts the moment the row is held</div>
+        <div class="tiles" style="margin-top:14px;grid-template-columns:1fr 1fr">
+          <div class="tile"><div class="n r" id="nw-ok">—</div><div class="l">claimed</div></div>
+          <div class="tile"><div class="n" id="nw-no">—</div><div class="l">rejected</div></div>
+        </div>
+        <div class="chips" id="nw-chips"></div>
+        <p class="why" id="nw-why">Every transaction aims at the same first free seat, so three parents are told the class is full while three seats sit empty. And a genuine race loss surfaces as <span style="font-family:var(--mono);color:var(--red)">55P03 lock_not_available</span> — a lock error, not a business one. That fails NFR7.</p>
+      </div>
+    </div>
+    <p class="hint-inline" data-stagger="4" style="margin-top:14px">Measured on Postgres 14.19 with the seeded database, not estimated.</p>
+  </div>
+</section>
+
+<!-- ============ 9 · PROOF ============ -->
+<section class="slide" data-title="Proof">
+  <div class="head">
+    <h2 data-stagger="1">A green test proves nothing until it has failed</h2>
+    <p class="sub" data-stagger="1">Both race tests passed with the lock deleted. Only mutation testing caught it.</p>
+  </div>
+  <div class="body">
+    <div class="grid-2" data-stagger="2">
+      <div class="panel">
+        <div class="panel-label"><span>mutation · remove the row lock</span><span id="mut-state">lock in place</span></div>
+        <div class="seats" id="mut-seats" style="grid-template-columns:repeat(4,1fr)"></div>
+        <div class="meters">
+          <div class="meter"><span>confirmed</span><span class="track"><span class="fill" id="mut-fill"></span></span><span class="val" id="mut-val">3 / 4</span></div>
+        </div>
+        <div class="controls" style="margin-top:16px">
+          <button class="btn danger" id="mut-toggle" aria-pressed="false">Delete FOR UPDATE SKIP LOCKED</button>
+          <button class="btn primary" id="mut-run">Send 12 parents</button>
+        </div>
+        <p class="hint-inline" id="mut-note" style="margin-top:12px;line-height:1.6">Twelve parents, one seat. With the lock in place exactly one is ever handed it.</p>
+      </div>
+      <div class="stack">
+        <div class="panel">
+          <div class="panel-label"><span>what the suite says</span></div>
+          <div class="rows">
+            <div class="rrow"><span class="dot g"></span><span class="grow">bun test</span><span class="tag" id="p-tests">19 / 19 pass</span></div>
+            <div class="rrow"><span class="dot g"></span><span class="grow">k6 · 3 scenarios</span><span class="tag" id="p-k6">exit 0</span></div>
+            <div class="rrow"><span class="dot g"></span><span class="grow">booking p95</span><span class="tag">22.5 ms</span></div>
+            <div class="rrow"><span class="dot g"></span><span class="grow">payment p95</span><span class="tag">6.0 ms</span></div>
+          </div>
+        </div>
+        <div class="panel" style="background:var(--panel-2);box-shadow:inset 0 0 0 1px var(--line)">
+          <div class="panel-label"><span>the false pass</span></div>
+          <p style="font-size:13px;line-height:1.65;color:var(--dim)">
+            The end state was right — one confirmed, roster of four — but reached by handing
+            <b style="color:var(--orange);font-weight:600">ten parents the same seat</b> and narrowing them back at payment.
+            The fix was a stricter assertion, not a weaker one:
+            <span style="font-family:var(--mono);color:var(--text)">exactly one parent may ever be handed the seat</span>.
+          </p>
+        </div>
+        <div class="panel" style="background:var(--red-wash);box-shadow:inset 0 0 0 1px rgba(248,81,73,.28)">
+          <div class="panel-label" style="color:var(--red)"><span>with the lock deleted</span></div>
+          <p style="font-size:13px;line-height:1.6;color:var(--dim)">
+            <span style="font-family:var(--mono);color:var(--red)">bun test</span> drops to 17 / 19 · <span style="font-family:var(--mono);color:var(--red)">k6 exits 99</span> — deterministically, 3 runs of 3.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</div>
+
+<nav class="rail">
+  <span class="title" id="rail-title">Title</span>
+  <span class="dots" id="dots" role="tablist" aria-label="Slides"></span>
+  <span class="spacer"></span>
+  <span><kbd>←</kbd> <kbd>→</kbd> move · <kbd>F</kbd> fullscreen</span>
+</nav>
+
+<script>
+(() => {
+  const slides = [...document.querySelectorAll('.slide')];
+  const dotsEl = document.getElementById('dots');
+  const railTitle = document.getElementById('rail-title');
+  let idx = 0;
+
+  slides.forEach((s, i) => {
+    const b = document.createElement('button');
+    b.setAttribute('role', 'tab');
+    b.title = s.dataset.title;
+    b.setAttribute('aria-label', `Slide ${i + 1}: ${s.dataset.title}`);
+    b.addEventListener('click', () => go(i));
+    dotsEl.appendChild(b);
+  });
+  const dots = [...dotsEl.children];
+
+  function go(n) {
+    idx = Math.max(0, Math.min(slides.length - 1, n));
+    slides.forEach((s, i) => s.classList.toggle('is-active', i === idx));
+    dots.forEach((d, i) => d.setAttribute('aria-current', String(i === idx)));
+    railTitle.textContent = `${String(idx + 1).padStart(2, '0')} · ${slides[idx].dataset.title}`;
+    location.hash = String(idx + 1);
+  }
+
+  addEventListener('keydown', (e) => {
+    if (e.target.matches('input,textarea')) return;
+    const k = e.key;
+    if (k === 'ArrowRight' || k === ' ' || k === 'PageDown') { e.preventDefault(); go(idx + 1); }
+    else if (k === 'ArrowLeft' || k === 'PageUp') { e.preventDefault(); go(idx - 1); }
+    else if (k === 'Home') go(0);
+    else if (k === 'End') go(slides.length - 1);
+    else if (k === 'f' || k === 'F') {
+      document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+    } else if (/^[1-9]$/.test(k)) go(Number(k) - 1);
+  });
+
+  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const beat = (ms) => sleep(reduced ? 0 : ms);
+
+  /* ---------- 2 · timeline ---------- */
+  {
+    const rows = [...document.querySelectorAll('#tl .tlrow')];
+    const btn = document.getElementById('tl-play');
+    const status = document.getElementById('tl-status');
+    let running = false;
+    btn.addEventListener('click', async () => {
+      if (running) return;
+      running = true; btn.disabled = true;
+      rows.forEach(r => r.classList.remove('on'));
+      for (let i = 0; i < rows.length; i++) {
+        rows[i].classList.add('on');
+        status.textContent = `step ${i + 1} of ${rows.length}`;
+        await beat(650);
+      }
+      status.textContent = 'B is confirmed. A must not be — and must not be charged.';
+      btn.disabled = false; running = false;
+    });
+  }
+
+  /* ---------- shared seat rendering ---------- */
+  function renderSeats(el, seats) {
+    el.innerHTML = seats.map(s => `
+      <div class="seat" data-st="${s.st}">
+        <span class="no">seat ${s.no}</span>
+        <span class="st">${s.st}</span>
+        <span class="who">${s.who || ''}</span>
+      </div>`).join('');
+  }
+  const seeded = () => ([
+    { no: 1, st: 'booked', who: 'Aisha R.' },
+    { no: 2, st: 'booked', who: 'Bilal R.' },
+    { no: 3, st: 'booked', who: 'Chen L.' },
+    { no: 4, st: 'available', who: '' },
+  ]);
+
+  /* ---------- 3 · inventory race ---------- */
+  {
+    const el = document.getElementById('inv-seats');
+    const status = document.getElementById('inv-status');
+    const turned = document.getElementById('inv-turned');
+    const badge = document.getElementById('inv-badge');
+    const node = document.getElementById('inv-node');
+    let seats = seeded(), busy = false;
+
+    const meters = () => {
+      const c = (k) => seats.filter(s => s.st === k).length;
+      const set = (m, v, t) => {
+        document.getElementById('m-' + m).style.width = (v / 4 * 100) + '%';
+        document.getElementById('v-' + m).textContent = `${v} / 4`;
+      };
+      set('avail', c('available')); set('lock', c('locked')); set('book', c('booked'));
+      badge.textContent = `${c('booked')} / 4 confirmed`;
+    };
+    const paint = () => { renderSeats(el, seats); meters(); };
+    paint();
+
+    document.getElementById('inv-reset').addEventListener('click', () => {
+      if (busy) return;
+      seats = seeded(); paint();
+      turned.textContent = 'turned away 0';
+      node.classList.remove('is-red'); badge.classList.remove('is-red');
+      status.textContent = 'seeded at 3 / 4 — one seat left';
+    });
+
+    document.getElementById('inv-run').addEventListener('click', async () => {
+      if (busy) return; busy = true;
+      seats = seeded(); paint();
+      let away = 0, winner = null;
+      for (let p = 1; p <= 20; p++) {
+        const free = seats.find(s => s.st === 'available');
+        if (free && !winner) {
+          winner = p; free.st = 'locked'; free.who = `parent ${p}`;
+          status.textContent = `parent ${p} claimed seat ${free.no}`;
+          paint();
+          el.children[free.no - 1].classList.add('pulse');
+          await beat(420);
+          el.children[free.no - 1].classList.remove('pulse');
+        } else {
+          away++; turned.textContent = `turned away ${away}`;
+          status.textContent = `parent ${p} → 409 class_full`;
+          await beat(70);
+        }
+      }
+      const w = seats.find(s => s.st === 'locked');
+      if (w) { w.st = 'booked'; w.who = `parent ${winner} · paid`; }
+      paint();
+      status.textContent = `1 confirmed · ${away} turned away · never more than 4`;
+      busy = false;
+    });
+  }
+
+  /* ---------- 4 · state machine ---------- */
+  {
+    const copy = {
+      available: '<b style="color:var(--text);font-weight:600">available</b> is the resting state. The row exists from the moment the class is created — the inventory is fixed then, not calculated later.',
+      locked: '<b style="color:var(--text);font-weight:600">available → locked</b> happens inside <span style="font-family:var(--mono);color:var(--blue)">createBooking</span>. The row is claimed with a lock, a deadline is stamped on it, and the owning booking is recorded.',
+      booked: '<b style="color:var(--text);font-weight:600">locked → booked</b> happens only on a successful payment. A decline sends it straight back to available for the next parent.',
+    };
+    const txt = document.getElementById('sm-text');
+    const hint = document.getElementById('sm-hint');
+    document.querySelectorAll('[data-sm]').forEach(b => {
+      b.addEventListener('click', () => {
+        txt.innerHTML = copy[b.dataset.sm];
+        hint.textContent = b.dataset.sm;
+        document.querySelectorAll('[data-sm]').forEach(o => o.style.opacity = o === b ? '1' : '.45');
+      });
+    });
+  }
+
+  /* ---------- 6 & 7 · step-throughs ---------- */
+  function stepper(rootId, btnId, resetId, statusId, doneMsg) {
+    const steps = [...document.querySelectorAll('#' + rootId + ' .step')];
+    const btn = document.getElementById(btnId);
+    const status = document.getElementById(statusId);
+    let at = -1;
+    const paint = () => steps.forEach((s, i) => {
+      s.classList.toggle('on', i === at);
+      s.classList.toggle('done', i < at);
+    });
+    btn.addEventListener('click', () => {
+      at = at >= steps.length - 1 ? 0 : at + 1;
+      paint();
+      status.textContent = at === steps.length - 1 ? doneMsg : `step ${at + 1} of ${steps.length}`;
+      btn.textContent = at >= steps.length - 1 ? 'Start over' : 'Next step';
+    });
+    document.getElementById(resetId).addEventListener('click', () => {
+      at = -1; paint(); btn.textContent = 'Step through';
+      status.textContent = `${steps.length} steps · one transaction`;
+    });
+  }
+  stepper('cb-steps', 'cb-step', 'cb-reset', 'cb-status', 'committed — the parent holds seat 4');
+  stepper('cp-steps', 'cp-step', 'cp-reset', 'cp-status', 'committed — exactly one outcome, always');
+
+  /* ---------- 8 · SKIP LOCKED vs NOWAIT ---------- */
+  {
+    let scenario = 'empty';
+    const b1 = document.getElementById('sc-empty'), b2 = document.getElementById('sc-last');
+    const pick = (s) => {
+      scenario = s;
+      b1.setAttribute('aria-pressed', String(s === 'empty'));
+      b2.setAttribute('aria-pressed', String(s === 'last'));
+      ['skip-ok','skip-no','nw-ok','nw-no'].forEach(id => document.getElementById(id).textContent = '—');
+      document.getElementById('skip-chips').innerHTML = '';
+      document.getElementById('nw-chips').innerHTML = '';
+    };
+    b1.addEventListener('click', () => pick('empty'));
+    b2.addEventListener('click', () => pick('last'));
+
+    document.getElementById('cmp-run').addEventListener('click', async () => {
+      const parents = scenario === 'empty' ? 4 : 20;
+      const free = scenario === 'empty' ? 4 : 1;
+      const skipChips = document.getElementById('skip-chips');
+      const nwChips = document.getElementById('nw-chips');
+      skipChips.innerHTML = ''; nwChips.innerHTML = '';
+
+      // SKIP LOCKED: each parent steps over held rows and takes the next free seat.
+      let sOk = 0, sNo = 0;
+      for (let p = 1; p <= parents; p++) {
+        if (sOk < free) { sOk++; add(skipChips, `seat ${sOk}`, 'ok'); }
+        else { sNo++; if (sNo <= 6) add(skipChips, 'class_full', ''); }
+        document.getElementById('skip-ok').textContent = sOk;
+        document.getElementById('skip-no').textContent = sNo;
+        await beat(p <= 6 ? 130 : 20);
+      }
+      // NOWAIT: everyone aims at the same first free row; all but one abort.
+      let nOk = 0, nNo = 0;
+      for (let p = 1; p <= parents; p++) {
+        if (nOk < 1) { nOk++; add(nwChips, 'seat 1', 'ok'); }
+        else { nNo++; if (nNo <= 6) add(nwChips, '55P03', 'no'); }
+        document.getElementById('nw-ok').textContent = nOk;
+        document.getElementById('nw-no').textContent = nNo;
+        await beat(p <= 6 ? 130 : 20);
+      }
+      if (scenario === 'empty' && nNo > 0) add(nwChips, `${free - nOk} seats sat empty`, 'warn');
+    });
+    function add(el, text, cls) {
+      const s = document.createElement('span');
+      s.className = 'chip' + (cls ? ' ' + cls : '');
+      s.textContent = text;
+      el.appendChild(s);
+    }
+  }
+
+  /* ---------- 9 · mutation ---------- */
+  {
+    const el = document.getElementById('mut-seats');
+    const toggle = document.getElementById('mut-toggle');
+    const state = document.getElementById('mut-state');
+    const note = document.getElementById('mut-note');
+    const fill = document.getElementById('mut-fill');
+    const val = document.getElementById('mut-val');
+    const pTests = document.getElementById('p-tests');
+    const pK6 = document.getElementById('p-k6');
+    let broken = false, seats = seeded(), busy = false;
+
+    const paint = (over = 0) => {
+      renderSeats(el, seats);
+      const booked = seats.filter(s => s.st === 'booked').length + over;
+      fill.style.width = Math.min(100, booked / 4 * 100) + '%';
+      fill.className = 'fill' + (booked > 4 ? ' is-red' : '');
+      val.textContent = `${booked} / 4`;
+      val.style.color = booked > 4 ? 'var(--red)' : '';
+    };
+    paint();
+
+    toggle.addEventListener('click', () => {
+      if (busy) return;
+      broken = !broken;
+      toggle.setAttribute('aria-pressed', String(broken));
+      toggle.textContent = broken ? 'Restore FOR UPDATE SKIP LOCKED' : 'Delete FOR UPDATE SKIP LOCKED';
+      state.textContent = broken ? 'lock deleted' : 'lock in place';
+      state.style.color = broken ? 'var(--red)' : '';
+      pTests.textContent = broken ? '17 / 19 pass' : '19 / 19 pass';
+      pTests.style.color = broken ? 'var(--red)' : '';
+      pK6.textContent = broken ? 'exit 99' : 'exit 0';
+      pK6.style.color = broken ? 'var(--red)' : '';
+      seats = seeded(); paint();
+      note.innerHTML = broken
+        ? 'Ten of twelve transactions read the same free row and every one of them is handed seat 4.'
+        : 'Twelve parents, one seat. With the lock in place exactly one is ever handed it.';
+    });
+
+    document.getElementById('mut-run').addEventListener('click', async () => {
+      if (busy) return; busy = true;
+      seats = seeded(); paint();
+      const seat4 = seats[3];
+      if (!broken) {
+        seat4.st = 'locked'; seat4.who = 'parent 1'; paint();
+        await beat(400);
+        seat4.st = 'booked'; seat4.who = 'parent 1 · paid'; paint();
+        note.innerHTML = 'One 201, eleven clean <span style="font-family:var(--mono);color:var(--green)">409 class_full</span>. The roster holds at four.';
+      } else {
+        seat4.st = 'over'; paint();
+        for (let i = 1; i <= 10; i++) {
+          seat4.who = `${i} parents handed seat 4`;
+          paint(i - 1);
+          await beat(150);
+        }
+        note.innerHTML = 'Ten parents were shown a payment screen for a seat that was never theirs. The final tally still looked right — which is exactly why the test passed.';
+      }
+      busy = false;
+    });
+  }
+
+  go(Number(location.hash.slice(1)) - 1 || 0);
+})();
+</script>
+</body>
+</html>
