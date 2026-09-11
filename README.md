@@ -157,69 +157,14 @@ roster/
    └─ slides.html               interactive walkthrough
 ```
 
-## For reviewers
+## Roadmap
 
-This was built as a timeboxed take-home. The sections the brief asks for:
-
-### Time spent
-
-| Area | Time |
-|---|---|
-| Requirements, API contract, schema and the three invariants — by hand, before any code | 30 min |
-| API: both transactions, routes, error mapping, env, logging | 55 min |
-| Integration tests, plus the mutation pass that found the false passes | 50 min |
-| k6 scenarios and thresholds | 30 min |
-| Frontend | 25 min |
-| Docker, deployment, docs | 20 min |
-| **Total** | **~3.5 h** |
-
-<!-- confirm this reflects your actual time before submitting -->
-
-### Assumptions
-
-- **No authentication.** The client sends a `studentId` and is trusted. Roles are conceptual.
-- **Mock payments settle synchronously**, driven by a boolean. No provider, no webhook, no async state.
-- **One price, one currency.** No tax, no discounts.
-- **No refunds, and none are needed** — a parent who loses the race is never charged. The lost-seat
-  attempt is recorded at `amount_cents = 0` as an audit record, not a payment.
-- **Capacity is fixed at 4** by the seed. There is no admin API to change it, so I1 holds at runtime.
-- **Timestamps are `timestamptz`**, serialised as ISO 8601. The browser formats them; there is no
-  timezone logic.
-
-### What I deliberately cut
-
-| Cut | Why |
-|---|---|
-| Auth | orthogonal to the concurrency problem; would have eaten the timebox in middleware |
-| Real payment gateway | the interesting failure — charged for a seat you did not get — reproduces with a boolean |
-| Background sweeper for lapsed holds | lazy expiry in the claim query gets the same seat reuse with no scheduler. Cost: stale `PENDING_PAYMENT` rows, named and monitored below |
-| Notifications, metrics, tracing | nothing under test depends on them; one-line JSON logs are enough |
-| A trigger enforcing I1 | seats are only ever created by `generate_series`; a structural guarantee is out of timebox for a scenario reachable only by ad-hoc SQL |
-| CI | everything is verified by hand. First thing to add for a team |
-
-### What I would monitor
-
-- **Rate of `class_full` at payment time** — the race actually firing, not just the fail-fast at booking
-- **Payment decline rate**
-- **`PENDING_PAYMENT` bookings older than the hold window** — the stale-hold leak this design accepts
-- **Seat-claim lock wait and transaction duration** on `class_seats`
-- **409 duplicate rate** as a UX signal
-- **The invariant itself**, as an alert that must always return zero rows:
-
-```sql
-SELECT c.id, count(*) FILTER (WHERE b.status = 'CONFIRMED') AS confirmed, c.capacity
-  FROM classes c LEFT JOIN bookings b ON b.class_id = c.id
- GROUP BY c.id HAVING count(*) FILTER (WHERE b.status = 'CONFIRMED') > c.capacity;
-```
-
-### What I would do next
-
-1. **A sweeper for lapsed holds** — release the seat and mark the booking `CANCELLED`, so the parent is told rather than finding out on the next attempt
-2. **Idempotency keys** on `POST /api/payments/complete`, so retries are safe across restarts
-3. **A real provider with webhooks** — the seat model already supports the async hold: `locked` with `pending_until` *is* the hold
-4. **Auth** — `studentId` from the session, roster admin-only
-5. **A waitlist** for the parents who lost the race — they are exactly the demand signal worth capturing
-6. **CI** running both suites against a Postgres service container, with the mutation checks as a scheduled job
+- **Sweeper for lapsed holds** — release the seat and mark the booking `CANCELLED`, so a parent is told rather than finding out on their next attempt
+- **Idempotency keys** on `POST /api/payments/complete`, so retries are safe across restarts
+- **Real payment provider** with webhooks — the seat model already supports the async hold: `locked` with `pending_until` *is* the hold
+- **Auth** — `studentId` from the session, roster admin-only
+- **Waitlist** for parents who lose the race
+- **CI** running both suites against a Postgres service container, with the mutation checks as a scheduled job
 
 ## License
 

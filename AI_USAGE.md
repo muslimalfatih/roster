@@ -1,7 +1,7 @@
 # AI usage
 
 How this project was built with AI, what was delegated and what was not, and where the model was
-wrong. Written because a take-home that used AI should say so precisely — and because the useful
+wrong. Written because a project built with AI should say so precisely — and because the useful
 part is not that AI was used, but where it had to be overruled.
 
 
@@ -62,7 +62,7 @@ line-by-line anyway.
 
 **Parallelism.** The frontend, the load tests and the container/deploy setup were built at the same
 time as the backend, on separate paths, merging without conflict because the contract was frozen
-first. In a 3–4 hour timebox that is the difference between "the concurrency is thoroughly proven"
+first. That is the difference between "the concurrency is thoroughly proven"
 and "there was no time left to prove it". Nearly all of the saved time went into the mutation pass.
 
 **Empirical probing of library behaviour.** Several small facts were established by running code

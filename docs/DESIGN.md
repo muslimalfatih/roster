@@ -6,6 +6,30 @@ transactions, what was measured, what the tests actually defend, and how each re
 
 ---
 
+## Scope and assumptions
+
+What the system assumes, and what it leaves out on purpose.
+
+- **No authentication.** The client sends a `studentId` and is trusted. Roles are conceptual.
+- **Mock payments settle synchronously**, driven by a boolean. No provider, no webhook, no async state.
+- **One price, one currency.** No tax, no discounts.
+- **No refunds, and none are needed** — a parent who loses the race is never charged. The lost-seat
+  attempt is recorded at `amount_cents = 0` as an audit record, not a payment.
+- **Capacity is fixed at 4** by the seed. There is no admin API to change it, so I1 holds at runtime.
+- **Timestamps are `timestamptz`**, serialised as ISO 8601. The browser formats them; there is no
+  timezone logic.
+
+| Left out | Why |
+|---|---|
+| Auth | orthogonal to the concurrency problem this project is about |
+| Real payment gateway | the interesting failure — charged for a seat you did not get — reproduces with a boolean |
+| Background sweeper for lapsed holds | lazy expiry in the claim query gets the same seat reuse with no scheduler. Cost: stale `PENDING_PAYMENT` rows, named and monitored below |
+| Notifications, metrics, tracing | nothing under test depends on them; one-line JSON logs are enough |
+| A trigger enforcing I1 | seats are only ever created by `generate_series`; a structural guarantee is deferred for a scenario reachable only by ad-hoc SQL |
+| CI | everything is verified by hand so far. First thing to add for a team |
+
+---
+
 ## Verify from the shell
 
 
