@@ -3,19 +3,14 @@ import { Link, useSearch } from '@tanstack/react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Booking, CompletePaymentResponse, PaymentOutcome } from '@roster/types';
 import { completePayment, createBooking, errorText, getClasses, getStudents, keys } from '../api';
+import { SeatDots } from '../components/SeatDots';
+import { formatWhen, seatsLeft } from '../format';
 
-const outcomeStyle: Record<PaymentOutcome, string> = {
-  confirmed: 'border-emerald-300 bg-emerald-50 text-emerald-900',
-  payment_declined: 'border-rose-300 bg-rose-50 text-rose-900',
-  class_full: 'border-amber-300 bg-amber-50 text-amber-900',
-  already_processed: 'border-slate-300 bg-slate-100 text-slate-700',
-};
-
-const outcomeTitle: Record<PaymentOutcome, string> = {
-  confirmed: 'Confirmed',
-  payment_declined: 'Payment declined — seat released',
-  class_full: 'Seat hold expired — seat lost, no charge made',
-  already_processed: 'Already processed — nothing changed',
+const outcome: Record<PaymentOutcome, { title: string; tone: string }> = {
+  confirmed: { title: 'Seat confirmed', tone: 'text-ok' },
+  payment_declined: { title: 'Payment declined', tone: 'text-err' },
+  class_full: { title: 'Seat no longer available', tone: 'text-warn' },
+  already_processed: { title: 'Already processed', tone: 'text-ink-2' },
 };
 
 /** Claim a seat, then run the mock payment against it. */
@@ -61,114 +56,143 @@ export function BookPage() {
 
   if (!classId) {
     return (
-      <p className="text-sm text-slate-600">
-        No class selected. <Link to="/" className="underline">Pick a class</Link>.
-      </p>
+      <div className="enter">
+        <h1 className="display">No class selected</h1>
+        <p className="mt-3 text-[17px] text-ink-2">Choose a class first, then book a seat.</p>
+        <Link to="/" className="btn btn-primary mt-8">
+          See classes
+        </Link>
+      </div>
     );
   }
 
   const klass = classes.data?.find((c) => c.id === classId);
+  const child = students.data?.find((s) => s.id === studentId);
+  const status = payment?.status ?? booking?.status;
 
   return (
-    <div className="space-y-8">
-      <section className="space-y-2">
-        <h1 className="text-xl font-semibold">{klass ? klass.name : 'Book a trial class'}</h1>
+    <div>
+      <Link to="/" className="enter mb-6 inline-flex items-center gap-1 text-[15px] text-accent">
+        <span aria-hidden="true">‹</span> Classes
+      </Link>
+
+      <header className="enter mb-10" style={{ '--i': 1 } as React.CSSProperties}>
+        <h1 className="display">{klass?.name ?? 'Book a seat'}</h1>
         {klass && (
-          <p className="text-sm text-slate-500">
-            {new Date(klass.startsAt).toLocaleString()} · {klass.confirmedCount} of {klass.capacity}{' '}
-            confirmed · {klass.seatsAvailable} free
+          <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[17px] text-ink-2">
+            <span>{formatWhen(klass.startsAt)}</span>
+            <span className="text-ink-3">·</span>
+            <span className="inline-flex items-center gap-2.5">
+              <SeatDots capacity={klass.capacity} confirmed={klass.confirmedCount} locked={klass.seatsLocked} />
+              {seatsLeft(klass.seatsAvailable, klass.seatsLocked)}
+            </span>
           </p>
         )}
+      </header>
 
-        <label htmlFor="student" className="block pt-2 text-sm font-medium text-slate-700">
+      <section className="card enter px-6 py-6" style={{ '--i': 2 } as React.CSSProperties}>
+        <label htmlFor="student" className="mb-2 block text-[13px] font-medium text-ink-2">
           Child
         </label>
         <select
           id="student"
+          className="select"
           value={studentId}
+          disabled={booking !== null}
           onChange={(e) => {
             setStudentId(e.target.value);
             reset();
           }}
-          className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm"
         >
-          <option value="">Select a child…</option>
+          <option value="">Choose a child</option>
           {students.data?.map((s) => (
             <option key={s.id} value={s.id}>
               {s.name} — {s.parentName}
             </option>
           ))}
         </select>
-        {students.isError && <p className="text-sm text-rose-700">{errorText(students.error)}</p>}
-
-        <button
-          type="button"
-          onClick={() => book.mutate()}
-          disabled={!studentId || book.isPending}
-          className="rounded bg-slate-900 px-3 py-2 text-sm text-white disabled:bg-slate-300"
-        >
-          Create booking
-        </button>
-
-        {/* 409 duplicate_booking and 409 class_full surface verbatim — the backend's verdict wins. */}
-        {book.isError && (
-          <p className="rounded border border-rose-300 bg-rose-50 px-4 py-2 text-sm text-rose-900">
-            Booking rejected: {errorText(book.error)}
+        {students.isError && (
+          <p className="mt-3 text-[15px] text-err">
+            <span className="dot" />
+            {errorText(students.error)}
           </p>
+        )}
+
+        {!booking && (
+          <div className="mt-5 flex items-center gap-4">
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => book.mutate()}
+              disabled={!studentId || book.isPending}
+            >
+              {book.isPending ? 'Reserving…' : 'Book a seat'}
+            </button>
+            {/* 409 duplicate_booking and 409 class_full surface verbatim — the backend's verdict wins. */}
+            {book.isError && (
+              <p className="text-[15px] text-err">
+                <span className="dot" />
+                {errorText(book.error)}
+              </p>
+            )}
+          </div>
         )}
       </section>
 
       {booking && (
-        <section className="space-y-3 rounded border border-slate-300 bg-white p-4">
-          <h2 className="text-lg font-semibold">Mock payment</h2>
-          <p className="text-sm text-slate-600">
-            Booking <code className="rounded bg-slate-100 px-1">{booking.id}</code>
-            <br />
-            Status <strong>{payment?.status ?? booking.status}</strong> · Seat{' '}
-            <strong>{booking.seatNo ?? '—'}</strong>
-          </p>
-          <div className="flex gap-2">
-            {/*
-              Deliberately still enabled after a result: pressing "Pay" twice is how the
-              already_processed replay guard is demonstrated.
-            */}
-            <button
-              type="button"
-              onClick={() => pay.mutate(true)}
-              disabled={pay.isPending}
-              className="rounded bg-emerald-700 px-3 py-2 text-sm text-white disabled:bg-slate-300"
-            >
-              Pay (success)
+        <section className="card enter mt-4 px-6 py-6" key={booking.id}>
+          <div className="flex items-start justify-between gap-6">
+            <div>
+              <p className="text-[13px] font-medium text-ink-2">Reserved for {child?.name ?? 'your child'}</p>
+              <p className="display mt-1">Seat {booking.seatNo ?? '—'}</p>
+            </div>
+            <p className="rounded-full bg-surface px-3 py-1 text-[13px] font-medium text-ink-2">
+              {status === 'PENDING_PAYMENT' ? 'Awaiting payment' : status === 'CONFIRMED' ? 'Confirmed' : 'Not confirmed'}
+            </p>
+          </div>
+
+          {!payment && (
+            <p className="mt-4 text-[15px] leading-relaxed text-ink-2">
+              The seat is held while you pay. This is a mock payment, so you choose the result.
+            </p>
+          )}
+
+          <div className="mt-5 flex flex-wrap items-center gap-3">
+            {/* Still enabled after a result: pressing Pay twice is how the replay guard is demonstrated. */}
+            <button type="button" className="btn btn-primary" onClick={() => pay.mutate(true)} disabled={pay.isPending}>
+              Pay now
             </button>
-            <button
-              type="button"
-              onClick={() => pay.mutate(false)}
-              disabled={pay.isPending}
-              className="rounded bg-rose-700 px-3 py-2 text-sm text-white disabled:bg-slate-300"
-            >
-              Pay (fail)
+            <button type="button" className="btn btn-secondary" onClick={() => pay.mutate(false)} disabled={pay.isPending}>
+              Simulate a decline
             </button>
-            <button type="button" onClick={reset} className="rounded border border-slate-300 px-3 py-2 text-sm">
+            <button type="button" className="btn btn-tertiary" onClick={reset}>
               Start over
             </button>
           </div>
-          {pay.isError && <p className="text-sm text-rose-700">{errorText(pay.error)}</p>}
+
+          {pay.isError && (
+            <p className="mt-4 text-[15px] text-err">
+              <span className="dot" />
+              {errorText(pay.error)}
+            </p>
+          )}
+
           {payment && (
-            <div className={`rounded border px-4 py-3 text-sm ${outcomeStyle[payment.outcome]}`}>
-              <p className="font-semibold">{outcomeTitle[payment.outcome]}</p>
-              <p>{payment.message}</p>
-              <p className="mt-1 text-xs opacity-80">
-                booking status: {payment.status}
-                {payment.seatNo !== null && ` · seat ${payment.seatNo}`}
+            <div className="hairline enter mt-6 border-t pt-5" key={`${payment.outcome}-${payment.status}`}>
+              <p className={`text-[15px] font-semibold ${outcome[payment.outcome].tone}`}>
+                <span className="dot" />
+                {outcome[payment.outcome].title}
               </p>
+              <p className="mt-1.5 text-[15px] leading-relaxed text-ink-2">{payment.message}</p>
+              {payment.outcome === 'confirmed' && (
+                <Link to="/roster" search={{ classId }} className="btn btn-tertiary mt-3">
+                  See the roster
+                </Link>
+              )}
             </div>
           )}
         </section>
       )}
-
-      <Link to="/roster" search={{ classId }} className="inline-block text-sm underline">
-        View roster for this class
-      </Link>
     </div>
   );
 }

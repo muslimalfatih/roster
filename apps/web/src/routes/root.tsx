@@ -1,28 +1,26 @@
 import { Link, Outlet } from '@tanstack/react-router';
 
-const linkClass = 'px-3 py-1.5 rounded text-sm text-slate-600 hover:bg-slate-200';
-const activeProps = { className: `${linkClass} bg-slate-900 text-white hover:bg-slate-900` };
+const active = { className: 'navlink is-active' };
 
 export function RootLayout() {
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
-      <header className="border-b border-slate-200 bg-white">
-        <nav className="mx-auto flex max-w-3xl items-center gap-2 px-6 py-3">
-          <span className="mr-2 font-semibold">roster</span>
-          <Link to="/" className={linkClass} activeOptions={{ exact: true }} activeProps={activeProps}>
-            Classes
+    <div className="min-h-screen bg-surface text-ink">
+      <header className="nav">
+        <nav className="mx-auto flex h-12 max-w-[720px] items-center gap-8 px-6">
+          <Link to="/" className="text-[17px] font-semibold tracking-tight">
+            roster
           </Link>
-          <Link
-            to="/roster"
-            search={{ classId: undefined }}
-            className={linkClass}
-            activeProps={activeProps}
-          >
-            Admin roster
-          </Link>
+          <div className="flex gap-6 text-[13px]">
+            <Link to="/" className="navlink" activeOptions={{ exact: true }} activeProps={active}>
+              Classes
+            </Link>
+            <Link to="/roster" search={{ classId: undefined }} className="navlink" activeProps={active}>
+              Roster
+            </Link>
+          </div>
         </nav>
       </header>
-      <main className="mx-auto max-w-3xl px-6 py-8">
+      <main className="mx-auto max-w-[720px] px-6 pb-28 pt-14">
         <Outlet />
       </main>
     </div>

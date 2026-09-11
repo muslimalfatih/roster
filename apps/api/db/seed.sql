@@ -46,10 +46,12 @@ JOIN LATERAL (
   SELECT id FROM parents ORDER BY email OFFSET (n % 4) LIMIT 1
 ) p ON true;
 
+-- Real dates that match the names: next week's Saturday 10:00, Sunday 15:00, Monday 17:00.
+-- date_trunc('week') is Monday, so +5 / +6 / +7 land on the right days, always in the future.
 INSERT INTO classes (name, starts_at, capacity) VALUES
-  ('Science Trial - Sat 10:00', now() + interval '2 days', 4),
-  ('Math Trial - Sun 15:00',    now() + interval '3 days', 4),
-  ('English Trial - Mon 17:00', now() + interval '4 days', 4);
+  ('Science Trial - Sat 10:00', date_trunc('week', now() + interval '1 week')::date + 5 + interval '10 hours', 4),
+  ('Math Trial - Sun 15:00',    date_trunc('week', now() + interval '1 week')::date + 6 + interval '15 hours', 4),
+  ('English Trial - Mon 17:00', date_trunc('week', now() + interval '1 week')::date + 7 + interval '17 hours', 4);
 
 -- Every class gets exactly `capacity` seat rows. This is invariant I1: the number of
 -- seats a class can ever sell is fixed here, at creation, not checked at booking time.
