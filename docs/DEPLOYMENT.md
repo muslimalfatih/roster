@@ -1,8 +1,8 @@
 # Deployment
 
-> **The container setup is UNTESTED.** No Docker daemon was running on the machine this was built
-> on, so `apps/api/Dockerfile` and `docker-compose.yml` have never been built or run. They are
-> written from the workspace layout, not verified against it. To verify, from the **repo root**:
+> **Verified.** `docker compose up --build` from the repo root builds the image as written and both
+> services come up healthy — the API answers `/api/ready` with `db: up` against the compose
+> Postgres. To reproduce, from the **repo root**:
 >
 > ```sh
 > docker build -f apps/api/Dockerfile -t roster-api .   # context MUST be the repo root
@@ -40,8 +40,7 @@ frontend — set it.
 
 ## Verify the image before you deploy it
 
-The container has never been built on the author's machine — no Docker daemon was available. Do this
-first, because a broken image is much easier to diagnose locally than through a deploy log:
+Build it locally first. A broken image is much easier to diagnose here than through a deploy log:
 
 ```sh
 docker build -f apps/api/Dockerfile -t roster-api .        # context is the repo root
@@ -49,8 +48,8 @@ docker run --rm -e DATABASE_URL="$DATABASE_URL" -p 3000:3000 roster-api
 curl localhost:3000/api/health                             # {"ok":true}
 ```
 
-If the build fails at `corepack`, it is almost certainly the signature check that Node's bundled
-corepack applies to newer pnpm releases. Replace line 14 of the Dockerfile with:
+The build has been verified on `node:22-alpine` with corepack fetching pnpm 11.22.0. If a future
+Node image rejects the pnpm signature, replace line 14 of the Dockerfile with:
 
 ```dockerfile
 RUN npm install -g pnpm@11.22.0
@@ -154,7 +153,8 @@ Brings up `postgres:16-alpine` on host port **5433** (to dodge a local Postgres 
 `schema.sql` + `seed.sql` mounted into `/docker-entrypoint-initdb.d/`, and the API on
 `http://localhost:3000` once the DB healthcheck passes. Init scripts run **only on an empty data
 volume** — `docker compose down -v` to start clean. If host port 3000 is taken, change the API port
-mapping in `docker-compose.yml`. Untested; see the note at the top.
+mapping in `docker-compose.yml` (e.g. `"3001:3000"`) — and remember the web app's
+`VITE_API_BASE_URL` must then point at the same port.
 
 ## Local without Docker (what actually works today)
 

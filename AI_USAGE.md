@@ -1,6 +1,11 @@
 # AI usage
 
-## 1. Tools
+How this project was built with AI, what was delegated and what was not, and where the model was
+wrong. Written because a take-home that used AI should say so precisely — and because the useful
+part is not that AI was used, but where it had to be overruled.
+
+
+## Tools
 
 | Tool | Role |
 |---|---|
@@ -37,7 +42,7 @@ bookings. It worked and its tests passed. I replaced it with the seat-row model 
 can get wrong, and a row you have to take is not. The second version has no capacity check anywhere in
 the application code.
 
-## 2. What I used it for
+## What I used it for
 
 | Used AI for | Wrote / specified by hand |
 |---|---|
@@ -53,7 +58,7 @@ specified myself are the parts where a plausible-looking wrong answer would stil
 which is exactly where a language model is least trustworthy and where I would be reviewing it
 line-by-line anyway.
 
-## 3. Where it helped most
+## Where it helped most
 
 **Parallelism.** The frontend, the load tests and the container/deploy setup were built at the same
 time as the backend, on separate paths, merging without conflict because the contract was frozen
@@ -74,9 +79,9 @@ rather than by trusting docs or model memory, and each one would have cost real 
 - `createdb a b c` does not create three databases; it creates one and reads the rest as the
   description. The docs say `for db in …; do createdb "$db"; done` because that was checked.
 
-## 4. Where I disagreed with, corrected, or rejected it
+## Where it was wrong
 
-### (a) The generated race tests were false passes — the big one
+### The generated race tests were false passes — the big one
 
 Both the bun headline race test and the k6 last-seat thresholds were green. Both **stayed green**
 when the row lock was deleted from the seat claim.
@@ -100,7 +105,7 @@ new pair reports `rejected_at_booking=14`, `rejected_at_payment=5`, and k6 exits
 Trusting the green suite here would have shipped an unproven invariant and, worse, a confident and
 wrong claim about it in the walkthrough video.
 
-### (b) `FOR UPDATE NOWAIT` was in the spec; measurement said no
+### `FOR UPDATE NOWAIT` was in the spec; measurement said no
 
 NFR6 asks for `NOWAIT` "or similar patterns". Both were implemented and benchmarked against the real
 database. `NOWAIT` gives four parents booking an **empty four-seat class** one success and three
@@ -109,7 +114,7 @@ spurious "class full" errors, because `ORDER BY seat_no LIMIT 1` points them all
 (`lock_not_available`) — a lock error, not a business error, which is exactly what NFR7 says must not
 happen. Switched to `SKIP LOCKED`, and put the measurement in the README rather than the assertion.
 
-### (c) An earlier iteration charged the race loser
+### An earlier iteration charged the race loser
 
 One version recorded the `payment_attempt` **before** checking whether the seat was still held. A
 parent who lost the race would have been charged and then refused. Reordered so the ownership check
@@ -119,14 +124,14 @@ Locked in by a test that asserts no `SUCCESS` attempt exists on any booking that
 `PAYMENT_FAILED` (*MONEY SAFETY: losing the seat records a 0-cent failure and never a SUCCESS
 charge*).
 
-### (d) The documented Elysia testing approach does not work in 1.4.30
+### The documented Elysia testing approach does not work in 1.4.30
 
 `app.handle(new Request(...))` 404s silently, even after `.compile()`. An empirical probe caught it
 before the test suite was built on top of it. The tests bind a real ephemeral port and speak real
 HTTP instead — which turned out to be better evidence anyway, since it exercises the actual server,
 CORS headers, status codes and JSON serialisation.
 
-## 5. What I would change about the workflow
+## What I would do differently
 
 - **Write the mutation before trusting the test.** Never accept a generated test until it has been
   shown to fail against a deliberately broken implementation. A test that has never failed is not
@@ -143,7 +148,7 @@ CORS headers, status codes and JSON serialisation.
 - **Make refutation a separate role.** Review agents generate findings enthusiastically; a second
   agent whose only job is to reproduce or reject them kept the fix budget on real defects.
 
-## 6. How I verified the final implementation
+## How I verified the final implementation
 
 | Verification | Result |
 |---|---|
@@ -154,4 +159,4 @@ CORS headers, status codes and JSON serialisation.
 | **Live curl smoke of every endpoint and error path** | `class_full`, `duplicate_booking`, `not_found`, `invalid_request` (400 on an unparseable body), Elysia's 422 on a schema failure, `payment_declined`, `confirmed`, `already_processed` |
 | **Cold-start verification of the documented setup** | the README quick start was executed against a scratch database created for the purpose and then dropped |
 | **`pnpm typecheck` and `pnpm build`** | clean across all three packages; production web build succeeds |
-| **Not verified** | the container build. No Docker daemon was available; `docs/DEPLOYMENT.md` says so and lists the exact commands to check it. |
+| **Verified last** | the container build. Docker was unavailable during the build itself, so the Dockerfile was written from the workspace layout and only run afterwards — it built unmodified and came up healthy on the first `docker compose up`. |
