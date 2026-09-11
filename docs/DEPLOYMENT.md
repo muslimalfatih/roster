@@ -35,7 +35,7 @@ Local-only extras, used by the test and load-test runners rather than by the ser
 **`VITE_*` vars are inlined at BUILD time.** Vite substitutes them into the JS bundle; nothing reads
 them at runtime. Changing the API URL therefore requires a **redeploy of the web app**, not just an
 environment edit in the Vercel dashboard. If `VITE_API_BASE_URL` is unset at build time the bundle
-falls back to `http://localhost:3001`, which is a local default and will silently break a deployed
+falls back to `http://localhost:3000`, which is a local default and will silently break a deployed
 frontend — set it.
 
 ## Verify the image before you deploy it
